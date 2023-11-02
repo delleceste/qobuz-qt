@@ -106,6 +106,7 @@ class QobuzQt(QObject):
 
     @Slot()
     def search(self):
+        
         txt = self.win.ui.leSearch.text()
         th = QobuzQtThread(self, Search(self.session, txt))
         th.finished.connect(self.on_search_results)
@@ -113,22 +114,23 @@ class QobuzQt(QObject):
 
     @Slot()
     def on_search_results(self, search):
-        for result in search.results:
-            #print(f'result is {result}')
-            urls = []
-            if search.result_type == SearchResult.Album:
-                album = result
-                urls.append( album['image']['thumbnail'])
-                asyncio.run(self._fetch_img(urls))
+        urls = []
+        if search.result_type == SearchResult.Album:
+            for album in search.results:
+                # urls.append( album['image']['thumbnail'])
+                urls.append( album['image']['small'])
+
+        asyncio.run(self._fetch_img(urls))
 
 
     async def _fetch_img(self, urls):
         ssize = self.win.scene.sceneRect().size()
         imgcnt = len(urls)
         rows = math.sqrt(imgcnt)
+        maxw = 0.0
         x = 10.0
         y = 10.0
-        pos = QPoint(x, y)
+        cnt = 0
         async with aiohttp.ClientSession() as session:
             for url in urls:
                 async with session.get(url) as response:
@@ -136,16 +138,26 @@ class QobuzQt(QObject):
                         print(f'wating for url {url}')
                         image_bytes = await response.read()
                         # Convert image to black and white
-                        #image = Image.open(BytesIO(image_bytes))
                         pix = QPixmap()
                         pix.loadFromData(image_bytes)
-                        #pixi = QGraphicsPixmapItem(pix)
                         pixi = self.win.scene.addPixmap(pix)
                         pixi.setFlag(QGraphicsItem.ItemIsMovable, True)
                         pixi.setFlag(QGraphicsItem.ItemIsSelectable, True)
                         size = pixi.boundingRect().size()
-                        print(f'scene size {ssize} item siz {size}')
-
+                        pixi.setPos(x, y);
+                        print(f'scene size {ssize} item siz {size} pos {pixi.pos()}')
+                        x = x + 1.1 * size.width()
+                        if maxw < x:
+                            maxw = x
+                        r = self.win.scene.sceneRect()
+                        cnt += 1
+                        if cnt >= rows:
+                            cnt = 0
+                            x = 10.0
+                            y = y + 1.1 * size.height()
+        r.setWidth(maxw);
+        r.setHeight(y)
+        self.win.scene.setSceneRect(r)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
