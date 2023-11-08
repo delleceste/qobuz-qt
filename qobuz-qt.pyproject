@@ -1,7 +1,17 @@
 {
     "files": [
-    "qobuz-qt.py",
+        "qobuz_qt.py",
         "qobuzw.py",
-        "qobuz.ui"
+        "qobuz.ui",
+        "list_scene.py",
+        "artItem.py",
+        "artwork_fetch.py",
+        "album.py",
+        "threadable.py",
+        "search.py",
+        "login.py",
+        "detail_scene.py",
+        "tracks_view.py",
+        "player.py"
     ]
 }
