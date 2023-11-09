@@ -12,6 +12,7 @@
         "login.py",
         "detail_scene.py",
         "tracks_view.py",
-        "player.py"
+        "player.py",
+        "playlist_test.py"
     ]
 }

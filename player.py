@@ -46,6 +46,7 @@ class Player(QObject):
         media_content = []
         print(f'on_urls_ready: media count {pos} adding {len(trackurif.turls)}')
         for tu in trackurif.turls:
+            print(f'url \033[0;33m{tu["url"]}')
             media_content.append(QMediaContent(tu['url']))
         self.playlist.addMedia(media_content)
         if self.playlist.mediaCount() > 0:
