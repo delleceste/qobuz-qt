@@ -13,6 +13,7 @@
         "detail_scene.py",
         "tracks_view.py",
         "player.py",
-        "playlist_test.py"
+        "playlist_test.py",
+        "textview.py"
     ]
 }

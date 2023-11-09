@@ -22,7 +22,7 @@ class Search(Threadable):
     def setKeyword(self, txt):
         self.keyword = txt
 
-    def setType(type = SearchResult.Album):
+    def setType(self, type = SearchResult.Album):
         self.result_type = type;
 
     def run(self):

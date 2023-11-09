@@ -15,6 +15,7 @@ from search import Search, SearchResult, AlbumFetch
 from login import Login
 from tracks_view import TracksView, UserRoles
 from player import Player
+from textview import TextView
 
 from minim import qobuz as qo
 
@@ -39,7 +40,11 @@ class QobuzQt(QObject):
         msg = f'logging in as {email}...'
         self.win.statusBar().showMessage(msg)
 
+        # Player
         self.player = Player(self)
+
+        # Text View helper
+        self.textview = TextView(self)
 
         # connections
         self.win.ui.pbSearch.setDisabled(True)
@@ -68,6 +73,9 @@ class QobuzQt(QObject):
         # for testing
         self.win.ui.leSearch.setText("The dark side of the moon")
 
+        # more UI setup
+        self.win.ui.wRight.setVisible(False)
+
 
     @Slot(Threadable)
     def on_login(self, login):
@@ -81,6 +89,7 @@ class QobuzQt(QObject):
     @Slot()
     def search(self):
         self.search.setKeyword(self.win.ui.leSearch.text())
+        self.win.statusBar().showMessage(f'searching {self.win.ui.leSearch.text()}')
         th = QobuzQtThread(self, self.search)
         th.finished.connect(self.on_search_results)
         th.start()
@@ -108,19 +117,24 @@ class QobuzQt(QObject):
         for album in self.albums:
             self.win.scene.addArtwork(album)
 
+        self.win.ui.wRight.setVisible(True)
+        self.win.statusBar().showMessage(f'found {len(self.albums)} albums matching {self.win.ui.leSearch.text()}')
+
+
     @Slot(Threadable)
     def on_album_fetched(self, album_f : AlbumFetch):
         tracks = album_f.tracks
         self.tracks_view.set(self.win.ui.tw, tracks, album_f.id)
         ids = self.tracks_view.getIds(self.win.ui.tw)
-        self.player.enqueue(self.session, ids, QoFormat.HiRes192.value)
+        ## self.player.enqueue(self.session, ids, QoFormat.HiRes192.value)
 
     @Slot(Album)
-    def albumSelectionChanged(self, album):
+    def albumSelectionChanged(self, album : Album):
         print(f'albumSelectionChanged: {album}')
-        self._toggleScene(CurrentView.Detail)
+        ## self._toggleScene(CurrentView.Detail)
         self.win.scene2.prepareNewArtwork(1)
-        self.win.scene2.set(album)
+        ## self.win.scene2.set(album)
+        self.textview.set(album, self.win.ui.te)
         self._get_album(album.malbum['id'])
 
     @Slot()
