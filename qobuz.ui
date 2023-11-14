@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>QobuzW</string>
+   <string>PyQobuz</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout_4">
@@ -80,6 +80,13 @@
           </widget>
          </widget>
         </item>
+        <item row="0" column="3">
+         <widget class="QPushButton" name="pbAdd">
+          <property name="text">
+           <string>Add</string>
+          </property>
+         </widget>
+        </item>
        </layout>
       </widget>
       <widget class="QWidget" name="wRight" native="true">
@@ -115,13 +122,6 @@
              <widget class="QPushButton" name="pbPlay">
               <property name="text">
                <string>Play</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="0">
-             <widget class="QPushButton" name="pbAdd">
-              <property name="text">
-               <string>Add</string>
               </property>
              </widget>
             </item>
@@ -168,7 +168,7 @@
      <x>0</x>
      <y>0</y>
      <width>1153</width>
-     <height>24</height>
+     <height>34</height>
     </rect>
    </property>
   </widget>

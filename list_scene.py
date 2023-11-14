@@ -17,6 +17,7 @@ class ListScene(QGraphicsScene):
         self.x = self.y = 0
         self.cnt = 0
         self.selectionChanged.connect(self.emit_albumSelectionChanged)
+        self.selectedAlbum : Album = None
 
     def prepareNewArtwork(self, cnt: int):
         self.cnt = cnt;
@@ -67,4 +68,5 @@ class ListScene(QGraphicsScene):
         s = self.selectedItems()
         if len (s) == 1:
             a = s[0].album
+            self.selectedAlbum = a
             self.albumSelectionChanged.emit(a)

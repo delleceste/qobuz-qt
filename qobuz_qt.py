@@ -56,6 +56,7 @@ class QobuzQt(QObject):
         self.win.ui.pbPlay.clicked.connect(self.play)
         self.win.ui.pbStop.clicked.connect(self.stop)
         self.win.ui.pbClear.clicked.connect(self.clear)
+        self.win.ui.pbAdd.clicked.connect(self.add)
         self.player.track_changed.connect(self.on_track_changed)
 
         # init visibility / UI
@@ -74,6 +75,9 @@ class QobuzQt(QObject):
         self.win.ui.leSearch.setText("The dark side of the moon")
 
         # more UI setup
+        self.win.ui.wRight.setVisible(False)
+        self.win.ui.w_list.setVisible(False)
+        self.win.ui.pbAdd.setVisible(False)
         self.win.ui.wRight.setVisible(False)
 
 
@@ -117,24 +121,23 @@ class QobuzQt(QObject):
         for album in self.albums:
             self.win.scene.addArtwork(album)
 
-        self.win.ui.wRight.setVisible(True)
         self.win.statusBar().showMessage(f'found {len(self.albums)} albums matching {self.win.ui.leSearch.text()}')
 
 
     @Slot(Threadable)
     def on_album_fetched(self, album_f : AlbumFetch):
-        tracks = album_f.tracks
-        self.tracks_view.set(self.win.ui.tw, tracks, album_f.id)
-        ids = self.tracks_view.getIds(self.win.ui.tw)
-        ## self.player.enqueue(self.session, ids, QoFormat.HiRes192.value)
+        if album_f.id == self.win.scene.selectedAlbum.id:
+            tracks = album_f.tracks
+            self.win.scene.selectedAlbum.setTracks(album_f.getTracks())
+            self.textview.setTracks(self.win.ui.te)
 
     @Slot(Album)
     def albumSelectionChanged(self, album : Album):
         print(f'albumSelectionChanged: {album}')
-        ## self._toggleScene(CurrentView.Detail)
+        self.win.ui.pbAdd.setVisible(True)
+        self.win.ui.wRight.setVisible(True)
         self.win.scene2.prepareNewArtwork(1)
-        ## self.win.scene2.set(album)
-        self.textview.set(album, self.win.ui.te)
+        self.textview.setAlbum(album, self.win.ui.te)
         self._get_album(album.malbum['id'])
 
     @Slot()
@@ -143,7 +146,7 @@ class QobuzQt(QObject):
         for i in items:
             data = i.data(0, UserRoles.Metadata.value)
             print(f'selected \033[1;36m{data}\033[0m')
-            print(f'selected: album id \033[0;36m{i.data(0, UserRoles.AlbumId.value)}\033[0m')
+            print(f'selected: album id \033[0;36m{i.data(0, UserRoles.Album.value).title}\033[0m')
 
     def error(self, origin, reason):
         print(f'error: {origin}: \033[1;31m{reason}\033[0m')
@@ -162,13 +165,23 @@ class QobuzQt(QObject):
         self._toggleScene(CurrentView.List)
 
     @Slot()
+    def add(self):
+        self.win.ui.w_list.setVisible(True)
+        ids = self.tracks_view.add(self.win.ui.tw, self.textview.tracks, self.textview.album)
+        # ids = self.tracks_view.getIds(self.win.ui.tw)
+        self.player.enqueue(self.session, ids, QoFormat.HiRes192.value)
+
+    @Slot()
     def play(self):
+        self._toggleScene(CurrentView.Detail)
+        album = self.tracks_view.activeAlbum(self.win.ui.tw)
+        self.win.scene2.set(album)
         # track information stored in each item UserRole
         self.player.play()
 
     @Slot()
     def stop(self):
-        self.tracks_view.deselect()
+        self.tracks_view.deselect(self.win.ui.tw)
         self.player.stop()
 
     @Slot()
@@ -185,6 +198,9 @@ class QobuzQt(QObject):
     @Slot(int)
     def on_track_changed(self, idx):
         self.tracks_view.select(self.win.ui.tw, idx)
+        album = self.tracks_view.activeAlbum(self.win.ui.tw)
+        if album is not None:
+            self.win.scene2.set(album)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

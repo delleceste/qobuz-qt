@@ -16,3 +16,7 @@ class Album:
         self.max_sample_rate = ma['maximum_sampling_rate']
         self.max_br = ma['maximum_bit_depth']
         self.released = ma['release_date_original']
+        self.id = minim_album['id']
+
+    def setTracks(self, tracks : dict):
+        self.tracks = tracks

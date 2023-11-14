@@ -49,3 +49,6 @@ class AlbumFetch(Threadable):
         for track in album["tracks"]["items"]:
             self.tracks.append(track)
 
+    def getTracks(self) -> list:
+        return self.tracks
+

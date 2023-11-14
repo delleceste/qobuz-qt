@@ -7,6 +7,8 @@ import math
 # local
 from album import Album
 from artItem import ArtItem
+from album_play_item import AlbumPlayItem
+
 
 class DetailScene(QGraphicsScene):
 
@@ -31,27 +33,28 @@ class DetailScene(QGraphicsScene):
         return artist + '\n' + title
 
     def set(self, album: Album):
-        self.id = album.malbum['id']
-        img = album.lpix
-        ssize = self.sceneRect().size()
-        r = self.sceneRect()
-        text = self._caption(album.malbum)
-        art_item = ArtItem(img, text, self.font(), album)
-       # art_item.setFlag(QGraphicsItem.ItemIsMovable, True)
-        art_item.setFlag(QGraphicsItem.ItemIsSelectable, True)
-        size = art_item.boundingRect().size()
-        art_item.setPos(self.x, self.y);
-        self.addItem(art_item)
-        print(f'scene size {ssize} item siz {size} pos {art_item.pos()}')
-        self.x = self.x + 1.1 * size.width()
-        if self.maxw < self.x:
-            self.maxw = self.x
-        self.cnt += 1
-        if self.cnt >= self.rows:
-            self.cnt = 0
-            self.x = 10.0
-            self.y = self.y + 1.1 * size.height()
-        r.setWidth(self.maxw);
-        r.setHeight(self.y)
-        self.setSceneRect(r)
+        if album.id != self.id:
+            self.id = album.malbum['id']
+            img = album.spix
+            ssize = self.sceneRect().size()
+            r = self.sceneRect()
+            text = self._caption(album.malbum)
+            art_item = AlbumPlayItem(img, text, self.font(), album, self.sceneRect())
+           # art_item.setFlag(QGraphicsItem.ItemIsMovable, True)
+            art_item.setFlag(QGraphicsItem.ItemIsSelectable, True)
+            size = art_item.boundingRect().size()
+            art_item.setPos(self.x, self.y);
+            self.addItem(art_item)
+            print(f'scene size {ssize} item siz {size} pos {art_item.pos()}')
+            self.x = self.x + 1.1 * size.width()
+            if self.maxw < self.x:
+                self.maxw = self.x
+            self.cnt += 1
+            if self.cnt >= self.rows:
+                self.cnt = 0
+                self.x = 10.0
+                self.y = self.y + 1.1 * size.height()
+            r.setWidth(self.maxw);
+            r.setHeight(self.y)
+            self.setSceneRect(r)
 

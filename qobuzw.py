@@ -30,6 +30,7 @@ class QobuzW(QMainWindow):
 
         # single album scene
         self.scene2 = DetailScene(self)
+        self.scene2.setSceneRect(self.scene.sceneRect())
         self.ui.gview2.setScene(self.scene2)
 
         self.ui.stackW.setCurrentIndex(CurrentView.List.value)
