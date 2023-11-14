@@ -2,7 +2,7 @@
 
 from PySide2.QtWidgets import QGraphicsScene, QGraphicsRectItem, QGraphicsItem, QGraphicsPixmapItem, QGraphicsTextItem, QWidget
 from PySide2.QtCore import QRectF, QRect, QPointF, QSize, QSizeF
-from PySide2.QtGui import QPixmap, QPainter, QPainterPath, QFontMetrics, QFont, QPen
+from PySide2.QtGui import QPixmap, QPainter, QPainterPath, QFontMetrics, QFont, QPen, QColor
 from PySide2.QtWidgets import QGraphicsEllipseItem, QGraphicsPathItem
 from album import Album
 from math import pi, sin, cos
@@ -28,6 +28,8 @@ class TrackItem(QGraphicsTextItem):
         self.setPlainText(self.makeText(track))
         self.setFlag(QGraphicsItem.ItemSendsGeometryChanges, True);
         self.setFlag(QGraphicsItem.ItemIsMovable, True)
+        self.setFlag(QGraphicsItem.ItemIsSelectable, True)
+        self.track_id = track['id']
         # self.size is set after setPlainText
 
     def setText(self, text : str):
@@ -35,8 +37,11 @@ class TrackItem(QGraphicsTextItem):
         self.setPlainText(self.makeText(text))
 
     def paint(self, painter, option, widget):
+        color = QColor("green") if self.isSelected() else QColor("white")
+        painter.setPen(color.darker())
+        painter.setBrush(color)
+        painter.drawRoundedRect(QRectF(QPointF(0,0), self.size), 2.0, 2.0)
         QGraphicsTextItem.paint(self, painter, option, widget)
-        painter.drawRect(self.boundingRect())
 
     def setConnector(self, path):
         self.connector = path
@@ -130,7 +135,7 @@ class AlbumPlayItem(QGraphicsRectItem):
         alpha = 2 * pi / (tcnt );
         a0 = 0
         pr = self.p.rect() # pixmap rect
-        radius = min(pr.width(), pr.height()) * 1.2
+        radius = min(pr.width(), pr.height()) * 1.3
         x = c.x()
         y = c.y()
         i = 0
@@ -188,13 +193,17 @@ class AlbumPlayItem(QGraphicsRectItem):
 
         self.t.setToolTip(text + "\n" + str(adetails))
         self.t.setPos(self.p.x(), self.p.y() + pix.height())
-        #self.setRect(0, 0, max(tw, pw) + 2 * margin, th + ph + 2 * margin)
 
     def paint(self, painter, option, widget):
-        QGraphicsRectItem.paint(self, painter, option, widget)
-        painter.setPen(QPen("green"))
+        painter.setPen(QPen("lightblue"))
+        painter.drawRoundedRect(self.boundingRect(), 2.0, 2.0)
 
-        painter.drawRect(self.boundingRect())
+
+    def selectTrack(self, trackid):
+        for t in self.track_items:
+            if t.track_id == trackid:
+                t.setSelected(True)
+
 
 
 

@@ -58,3 +58,8 @@ class DetailScene(QGraphicsScene):
             r.setHeight(self.y)
             self.setSceneRect(r)
 
+    def selectTrack(self, trackid):
+        items = self.items()
+        for i in items:
+            if isinstance(i, AlbumPlayItem):
+                i.selectTrack(trackid)

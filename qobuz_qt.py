@@ -57,7 +57,7 @@ class QobuzQt(QObject):
         self.win.ui.pbStop.clicked.connect(self.stop)
         self.win.ui.pbClear.clicked.connect(self.clear)
         self.win.ui.pbAdd.clicked.connect(self.add)
-        self.player.track_changed.connect(self.on_track_changed)
+        self.player.track_index_changed.connect(self.on_track_index_changed)
 
         # init visibility / UI
         self.win.ui.pbBack.setVisible(False)
@@ -196,11 +196,18 @@ class QobuzQt(QObject):
         self.player.play(self.tracks_view.index(self.win.ui.tw, it));
 
     @Slot(int)
-    def on_track_changed(self, idx):
+    def on_track_index_changed(self, idx):
         self.tracks_view.select(self.win.ui.tw, idx)
         album = self.tracks_view.activeAlbum(self.win.ui.tw)
         if album is not None:
             self.win.scene2.set(album)
+
+    @Slot(str)
+    def on_track_changed(self, track_id):
+        album = self.tracks_view.activeAlbum(self.win.ui.tw)
+        if album is not None:
+            self.win.scene2.set(album)
+            self.win.scene2.selectTrack(track_id)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

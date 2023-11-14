@@ -23,16 +23,18 @@ class TrackUriFetch(Threadable):
 
 
 class Player(QObject):
-    track_changed = Signal(int)
+    track_index_changed = Signal(int)
+    track_changed = Signal(str)
 
     def __init__(self, parent: QObject):
         QObject.__init__(self, parent)
         self.playlist = QMediaPlaylist()
         self.player = None
         self.probe = QAudioProbe()
+        self.ids = []
 
         self.playlist.loaded.connect(self.on_playlist_loaded)
-        self.playlist.currentIndexChanged.connect(self.on_track_changed)
+        self.playlist.currentIndexChanged.connect(self.on_track_index_changed)
         self.playlist.loadFailed.connect(self.on_playlist_load_failed)
 
     def enqueue(self, session: qo.PrivateAPI, ids: list, format_id: Union[int, str]):
@@ -44,11 +46,13 @@ class Player(QObject):
     def on_urls_ready(self, trackurif):
         pos = self.playlist.mediaCount()
         media_content = []
+
         print(f'on_urls_ready: media count {pos} adding {len(trackurif.turls)}')
         for tu in trackurif.turls:
-            print(f'url \033[0;33m{tu["url"]}')
             media_content.append(QMediaContent(tu['url']))
+            self.ids.append(tu['track_id'])
         self.playlist.addMedia(media_content)
+
         if self.playlist.mediaCount() > 0:
             if self.player is None:
                 self.player = self._setup_player()
@@ -61,7 +65,8 @@ class Player(QObject):
                 self.player.setMedia(QMediaContent(self.playlist))
             print(f'playing playlist size {self.playlist.mediaCount()}... buf fill {self.player.bufferStatus()} offset \033[32m{offset}\033[0m')
             self.playlist.setCurrentIndex(offset)
-            self.on_track_changed(offset)
+            self.on_track_index_changed(offset)
+            self.on_track_changed(self.ids[offset])
             self.player.play()
             print(f'playing playlist at index {self.player.playlist().currentIndex()}')
 
@@ -77,6 +82,7 @@ class Player(QObject):
             self.player.stop()
             self.player = None
             self.playlist.clear()
+            self.ids.clear();
 
     @Slot(QMediaPlayer.Error)
     def on_player_err(self, e):
@@ -104,9 +110,14 @@ class Player(QObject):
 
 
     @Slot(int)
-    def on_track_changed(self, idx):
-        self.track_changed.emit(idx)
+    def on_track_index_changed(self, idx):
+        self.track_index_changed.emit(idx)
+        self.track_changed.emit(self.ids[idx])
 
+
+    @Slot(str)
+    def on_track_changed(self, track_id):
+        self.track_changed.emit(track_id)
     @Slot()
     def on_playlist_load_failed(self):
         print(f'player.py: playlist load failed: {self.playlist.errorString()}')
