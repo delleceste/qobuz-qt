@@ -15,6 +15,7 @@
         "player.py",
         "playlist_test.py",
         "textview.py",
-        "album_play_item.py"
+        "album_play_item.py",
+        "imgutils.py"
     ]
 }

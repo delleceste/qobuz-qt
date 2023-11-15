@@ -2,12 +2,14 @@
 
 from PySide2.QtWidgets import QGraphicsScene, QGraphicsItem
 from PySide2.QtCore import QRect, QRectF, Signal, Slot
+from PySide2.QtGui import QPixmap, QPainter
 import math
 
 # local
 from album import Album
 from artItem import ArtItem
 from album_play_item import AlbumPlayItem
+from imgutils import ImgUtils
 
 
 class DetailScene(QGraphicsScene):
@@ -17,6 +19,7 @@ class DetailScene(QGraphicsScene):
         self.x = self.y = 0
         self.cnt = 0
         self.id = -1
+        self.background = None
 
     def prepareNewArtwork(self, cnt: int):
         self.cnt = cnt;
@@ -35,6 +38,8 @@ class DetailScene(QGraphicsScene):
     def set(self, album: Album):
         if album.id != self.id:
             self.id = album.malbum['id']
+            imgu = ImgUtils()
+            self.background = QPixmap.fromImage(imgu.blurred(album.lpix))
             img = album.spix
             ssize = self.sceneRect().size()
             r = self.sceneRect()
@@ -63,3 +68,10 @@ class DetailScene(QGraphicsScene):
         for i in items:
             if isinstance(i, AlbumPlayItem):
                 i.selectTrack(trackid)
+
+    def drawBackground(self, painter, rect):
+        QGraphicsScene.drawBackground(self, painter, rect)
+        if self.background is not None:
+            imgu = ImgUtils()
+            painter.drawPixmap(self.sceneRect(), self.background, self.background.rect())
+
