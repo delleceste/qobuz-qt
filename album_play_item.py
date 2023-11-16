@@ -5,6 +5,7 @@ from PySide2.QtCore import QRectF, QRect, QPointF, QSize, QSizeF
 from PySide2.QtGui import QPixmap, QPainter, QPainterPath, QFontMetrics, QFont, QPen, QColor
 from PySide2.QtWidgets import QGraphicsEllipseItem, QGraphicsPathItem
 from album import Album
+from imgutils import ImgUtils
 from math import pi, sin, cos
 import textwrap
 
@@ -30,6 +31,9 @@ class TrackItem(QGraphicsTextItem):
         self.setFlag(QGraphicsItem.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
         self.track_id = track['id']
+        self.bgpix = None
+        self.bgrect = None
+        self.imgu = ImgUtils()
         # self.size is set after setPlainText
 
     def setText(self, text : str):
@@ -37,11 +41,20 @@ class TrackItem(QGraphicsTextItem):
         self.setPlainText(self.makeText(text))
 
     def paint(self, painter, option, widget):
-        color = QColor("green") if self.isSelected() else QColor("white")
+        if self.bgrect is None:
+            self._graphics_prepare()
+            self.setDefaultTextColor(QColor(self.imgu.bestFgColor(self.bgpix, self.bgrect)))
+
+        painter.drawPixmap(option.rect, self.bgpix, self.bgrect)
+
+        color = QColor("green") if self.isSelected() else QColor("lightblue")
         painter.setPen(color.darker())
-        painter.setBrush(color)
-        painter.drawRoundedRect(QRectF(QPointF(0,0), self.size), 2.0, 2.0)
+       # color.setAlpha(190)
+       # painter.setBrush(color)
+        r = QRectF(QPointF(0,0), option.rect.size())
+        painter.drawRoundedRect(r, 2.0, 2.0)
         QGraphicsTextItem.paint(self, painter, option, widget)
+
 
     def setConnector(self, path):
         self.connector = path
@@ -89,11 +102,20 @@ class TrackItem(QGraphicsTextItem):
             # value is the new position.
             path : QPainterPath = self.connector.path()
             self.connector.setPath(self.pathFrom(path.pointAtPercent(0)))
+            self.scene().update()
+            self._graphics_prepare()
 
         elif(change == QGraphicsItem.ItemSelectedChange):
             pass
 
         return QGraphicsItem.itemChange(self, change, value);
+
+    def _graphics_prepare(self):
+        if self.bgpix is None:
+            self.bgpix = self.scene().backgroundPixmap() # scene() : DetailScene
+        self.bgrect = self.mapRectToItem(self.scene().background_it, self.boundingRect()).toRect()
+        self.setDefaultTextColor(QColor(self.imgu.bestFgColor(self.bgpix, self.bgrect)))
+
 
 class AlbumPlayItem(QGraphicsRectItem):
     def __init__(self, pix : QPixmap, text : str, font: QFont, album : Album, sceneRect : QRectF, parent = None):

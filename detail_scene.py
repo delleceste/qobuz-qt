@@ -1,7 +1,8 @@
 # This Python file uses the following encoding: utf-8
 
-from PySide2.QtWidgets import QGraphicsScene, QGraphicsItem
-from PySide2.QtCore import QRect, QRectF, Signal, Slot
+from PySide2.QtWidgets import QGraphicsScene, QGraphicsItem, QGraphicsPixmapItem
+from PySide2.QtWidgets import QGraphicsBlurEffect, QGraphicsEffect
+from PySide2.QtCore import QRect, QRectF, Signal, Slot, Qt
 from PySide2.QtGui import QPixmap, QPainter
 import math
 
@@ -11,6 +12,15 @@ from artItem import ArtItem
 from album_play_item import AlbumPlayItem
 from imgutils import ImgUtils
 
+class BackgroundBlurEffect(QGraphicsBlurEffect):
+    def __init__(self, parent):
+        QGraphicsBlurEffect.__init__(self, parent)
+        self.setBlurRadius(15.0)
+        self.setBlurHints(QGraphicsBlurEffect.AnimationHint)
+
+    def draw(self, painter):
+        # QPixmap pix = self.sourcePixmap(Qt.LogicalCoordinates)
+        QGraphicsBlurEffect.draw(self, painter)
 
 class DetailScene(QGraphicsScene):
 
@@ -38,8 +48,8 @@ class DetailScene(QGraphicsScene):
     def set(self, album: Album):
         if album.id != self.id:
             self.id = album.malbum['id']
-            imgu = ImgUtils()
-            self.background = QPixmap.fromImage(imgu.blurred(album.lpix))
+            bgpix : QPixmap = album.lpix
+
             img = album.spix
             ssize = self.sceneRect().size()
             r = self.sceneRect()
@@ -47,9 +57,17 @@ class DetailScene(QGraphicsScene):
             art_item = AlbumPlayItem(img, text, self.font(), album, self.sceneRect())
            # art_item.setFlag(QGraphicsItem.ItemIsMovable, True)
             art_item.setFlag(QGraphicsItem.ItemIsSelectable, True)
-            size = art_item.boundingRect().size()
+            size = art_item.rect().size()
             art_item.setPos(self.x, self.y);
+
+            self.background_it = QGraphicsPixmapItem(bgpix.scaledToHeight(size.height()))
+            self.addItem(self.background_it)
+            self.background_it.setPos(art_item.pos())
+            self.background_it.setGraphicsEffect(BackgroundBlurEffect(self))
+
+
             self.addItem(art_item)
+
             print(f'scene size {ssize} item siz {size} pos {art_item.pos()}')
             self.x = self.x + 1.1 * size.width()
             if self.maxw < self.x:
@@ -69,9 +87,11 @@ class DetailScene(QGraphicsScene):
             if isinstance(i, AlbumPlayItem):
                 i.selectTrack(trackid)
 
-    def drawBackground(self, painter, rect):
-        QGraphicsScene.drawBackground(self, painter, rect)
-        if self.background is not None:
-            imgu = ImgUtils()
-            painter.drawPixmap(self.sceneRect(), self.background, self.background.rect())
+#    def drawBackground(self, painter, rect):
+#        QGraphicsScene.drawBackground(self, painter, rect)
+#        if self.background is not None:
+#            imgu = ImgUtils()
+#            painter.drawPixmap(self.sceneRect(), self.background, self.background.rect())
 
+    def backgroundPixmap(self):
+        return self.background_it.pixmap()
