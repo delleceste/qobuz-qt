@@ -24,20 +24,23 @@ class TrackUriFetch(Threadable):
 
 class Player(QObject):
     track_index_changed = Signal(int)
-    track_changed = Signal(str)
+    enqueued = Signal()
 
     def __init__(self, parent: QObject):
         QObject.__init__(self, parent)
         self.playlist = QMediaPlaylist()
-        self.player = None
+        self.qmplayer = self._setup_player()
         self.probe = QAudioProbe()
         self.ids = []
+        self.offset = -1
+        self.enqueue_ready = False # used by enqueue and on_urls_ready
 
         self.playlist.loaded.connect(self.on_playlist_loaded)
         self.playlist.currentIndexChanged.connect(self.on_track_index_changed)
         self.playlist.loadFailed.connect(self.on_playlist_load_failed)
 
     def enqueue(self, session: qo.PrivateAPI, ids: list, format_id: Union[int, str]):
+        self.enqueue_ready = False
         th = QobuzQtThread(self, TrackUriFetch(session, ids, format_id))
         th.finished.connect(self.on_urls_ready)
         th.start()
@@ -50,39 +53,63 @@ class Player(QObject):
         print(f'on_urls_ready: media count {pos} adding {len(trackurif.turls)}')
         for tu in trackurif.turls:
             media_content.append(QMediaContent(tu['url']))
-            self.ids.append(tu['track_id'])
+            self.ids.append(str(tu['track_id']))
         self.playlist.addMedia(media_content)
-
-        if self.playlist.mediaCount() > 0:
-            if self.player is None:
-                self.player = self._setup_player()
-        self.player.setMedia(QMediaContent(self.playlist))
+        self.qmplayer.setMedia(QMediaContent(self.playlist))
+        self.enqueued.emit()
+        self.enqueue_ready = True
 
     def play(self, offset : int = 0):
+        self.offset = offset
+        print(f'player.play: playlist empyty {self.playlist.isEmpty()} qmplayer playlist none? {self.qmplayer.playlist()} offset {offset}')
         if not self.playlist.isEmpty():
-            if self.player is None:
-                self.player = self._setup_player()
-                self.player.setMedia(QMediaContent(self.playlist))
-            print(f'playing playlist size {self.playlist.mediaCount()}... buf fill {self.player.bufferStatus()} offset \033[32m{offset}\033[0m')
+            if self.qmplayer.playlist() is None:
+                self.qmplayer.setMedia(self.playlist)
             self.playlist.setCurrentIndex(offset)
             self.on_track_index_changed(offset)
-            self.on_track_changed(self.ids[offset])
-            self.player.play()
-            print(f'playing playlist at index {self.player.playlist().currentIndex()}')
+            self.qmplayer.play()
+            print(f'playing playlist at index {self.qmplayer.playlist().currentIndex()} buf {self.qmplayer.bufferStatus()} ')
+
+    def play_by_id(self, track_id : str):
+        try:
+            print(f'type of track_id: {type(track_id)} track ids {self.ids}')
+            idx = self.ids.index(track_id)
+            self.play(idx)
+        except ValueError:
+            print(f'player.play: track id {track_id} not in playlist')
 
     def stop(self):
         print('stopping')
-        # self.playlist.clear() # for now
-        if self.player is not None:
-            self.player.stop()
-            self.player = None # release resource
+        self.offset = -1
+        if self.qmplayer is not None:
+            # let Python recycle the player and thus release the audio device
+            self.qmplayer.stop() # stop and setMedia with and empty content
+            self.qmplayer.setMedia(QMediaContent()) # to release audio device
+
+    @Slot(float)
+    def seek(self, percent):
+        to = int(self.qmplayer.duration() * percent)
+        print(f'seeking to {percent}, position {to} duration {self.qmplayer.duration()}')
+        self.qmplayer.setPosition(to)
+
 
     def clear(self):
-        if self.player is not None:
-            self.player.stop()
-            self.player = None
+        self.offset = -1
+        if self.qmplayer is not None:
+            self.qmplayer.stop()
+            self.qmplayer.setMedia(QMediaContent()) # to release audio device
             self.playlist.clear()
             self.ids.clear();
+
+    def trackId(self, index : int):
+        print(f'player.trackId type of input index {type(index)} value {index}')
+        return self.ids[index] if index < len(self.ids) else str()
+
+    def status(self):
+        return self.qmplayer.mediaStatus()
+
+    def enqueueReady(self):
+        return self.enqueue_ready
 
     @Slot(QMediaPlayer.Error)
     def on_player_err(self, e):
@@ -94,11 +121,17 @@ class Player(QObject):
 
     @Slot(QMediaPlayer.MediaStatus)
     def on_status_changed(self, status):
-        print(f'player.py: player state changed: {status} sender {self.sender}')
+        print(f'player.py: player status changed SENDER {self.sender()}: \033[1;34m{status}\033[0m player is {self.qmplayer if self.qmplayer is not None else "None"} state \033[1;35m{self.qmplayer.state() if self.qmplayer is not None else "None"}\033[0m media status is \033[1;36m{self.qmplayer.mediaStatus() if self.qmplayer is not None else "None"}\033[0m')
+        # check self.qmplayer not none in order not to attempt playing after stop
+        # was clicked
+#        if (status == QMediaPlayer.LoadedMedia or status == QMediaPlayer.BufferedMedia) and self.qmplayer is not None:
+#            print('calling self.qmplayer.\033[1;32mplay\033[0m!')
+#            self.qmplayer.play()
 
     @Slot(int)
     def on_buf_stat_changed(self, percent):
-        print(f'player.py: player buffer fill: {percent} sender {self.sender}')
+        if percent == 100:
+            print(f'player.py: player buffer fill: {percent} sender {self.sender}')
 
     @Slot(float)
     def on_rate_changed(self, rate):
@@ -108,22 +141,17 @@ class Player(QObject):
     def on_playlist_loaded(self):
         print(f'player.py: playlist loaded. size: {self.playlist.mediaCount()}')
 
-
     @Slot(int)
     def on_track_index_changed(self, idx):
         self.track_index_changed.emit(idx)
-        self.track_changed.emit(self.ids[idx])
 
-
-    @Slot(str)
-    def on_track_changed(self, track_id):
-        self.track_changed.emit(track_id)
     @Slot()
     def on_playlist_load_failed(self):
         print(f'player.py: playlist load failed: {self.playlist.errorString()}')
 
 
     def _setup_player(self):
+        print(f'player._setup_player: allocating new player')
         player = QMediaPlayer(self)
         player.setAudioRole(QAudio.MusicRole);
         player.error.connect(self.on_player_err)

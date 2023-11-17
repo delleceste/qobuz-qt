@@ -10,12 +10,13 @@
         "threadable.py",
         "search.py",
         "login.py",
-        "detail_scene.py",
+        "player_scene.py",
         "tracks_view.py",
         "player.py",
         "playlist_test.py",
         "textview.py",
         "album_play_item.py",
-        "imgutils.py"
+        "imgutils.py",
+        "item_types.py"
     ]
 }

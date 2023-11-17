@@ -2,8 +2,9 @@
 
 from PySide2.QtWidgets import QGraphicsScene, QGraphicsRectItem, QGraphicsItem, QGraphicsPixmapItem, QGraphicsTextItem
 from PySide2.QtCore import QRectF, QRect, QPointF
-from PySide2.QtGui import QPixmap, QPainter, QFontMetrics, QFont, QPen
+from PySide2.QtGui import QPixmap, QPainter, QFontMetrics, QFont, QPen, QBrush, QColor
 from album import Album
+from item_types import ItemTypes
 
 class ArtItem(QGraphicsRectItem):
     def __init__(self, pix : QPixmap, text : str, font: QFont, album : Album, parent = None):
@@ -12,6 +13,7 @@ class ArtItem(QGraphicsRectItem):
         self.p = QGraphicsPixmapItem(pix, self)
         self.p.setPos(margin, margin)
         self.album = album
+        self.id = album.id
         fm = QFontMetrics(font)
         lines = text.split('\n')
         th = fm.height() * len(lines)
@@ -39,5 +41,12 @@ class ArtItem(QGraphicsRectItem):
 
     def paint(self, painter, option, widget):
         QGraphicsRectItem.paint(self, painter, option, widget)
-        painter.setPen(QPen("green"))
-        painter.drawRect(self.boundingRect())
+        if self.isSelected():
+            pen = QPen(QColor(self.album.malbum["genre"]["color"]))
+            pen.setWidthF(3.0)
+            painter.setPen(pen)
+            painter.drawRoundRect(self.boundingRect(), 2.0, 2.0)
+
+    def type(self):
+        return ItemTypes.Art.value
+

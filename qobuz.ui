@@ -28,17 +28,17 @@
         </sizepolicy>
        </property>
        <layout class="QGridLayout" name="gridLayout">
+        <item row="0" column="3">
+         <widget class="QPushButton" name="pbAdd">
+          <property name="text">
+           <string>Add</string>
+          </property>
+         </widget>
+        </item>
         <item row="0" column="0">
          <widget class="QPushButton" name="pbBack">
           <property name="text">
            <string>Back</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="2">
-         <widget class="QPushButton" name="pbSearch">
-          <property name="text">
-           <string>Search</string>
           </property>
          </widget>
         </item>
@@ -52,7 +52,21 @@
           </property>
          </widget>
         </item>
-        <item row="1" column="0" colspan="4">
+        <item row="0" column="2">
+         <widget class="QPushButton" name="pbSearch">
+          <property name="text">
+           <string>Search</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="4">
+         <widget class="QPushButton" name="pbPlay">
+          <property name="text">
+           <string>Play</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0" colspan="5">
          <widget class="QStackedWidget" name="stackW">
           <property name="currentIndex">
            <number>1</number>
@@ -78,13 +92,6 @@
             </item>
            </layout>
           </widget>
-         </widget>
-        </item>
-        <item row="0" column="3">
-         <widget class="QPushButton" name="pbAdd">
-          <property name="text">
-           <string>Add</string>
-          </property>
          </widget>
         </item>
        </layout>
@@ -115,13 +122,6 @@
              <widget class="QPushButton" name="pbClear">
               <property name="text">
                <string>Clear</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QPushButton" name="pbPlay">
-              <property name="text">
-               <string>Play</string>
               </property>
              </widget>
             </item>
@@ -168,7 +168,7 @@
      <x>0</x>
      <y>0</y>
      <width>1153</width>
-     <height>34</height>
+     <height>23</height>
     </rect>
    </property>
   </widget>

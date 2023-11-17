@@ -20,19 +20,18 @@ class Search(Threadable):
         return "Search"
 
     def setKeyword(self, txt):
+        self.results.clear()
         self.keyword = txt
 
     def setType(self, type = SearchResult.Album):
         self.result_type = type;
 
     def run(self):
-        print(f'performing search with keyword {self.keyword}')
         search_results = self.session.search(self.keyword,  strict=True)
         print(f'results size {len(search_results["albums"]["items"])}')
         for al in search_results["albums"]["items"]:
             json_al = al;
             self.results.append(json_al)
-            print(f'JSON album {al} ')
             #self.results.append(qo.Album(al['id'], authenticate=True))
 
 class AlbumFetch(Threadable):

@@ -1,12 +1,13 @@
 # This Python file uses the following encoding: utf-8
 
 from PySide2.QtWidgets import QGraphicsScene, QGraphicsRectItem, QGraphicsItem, QGraphicsPixmapItem, QGraphicsTextItem, QWidget
-from PySide2.QtCore import QRectF, QRect, QPointF, QSize, QSizeF
-from PySide2.QtGui import QPixmap, QPainter, QPainterPath, QFontMetrics, QFont, QPen, QColor
-from PySide2.QtWidgets import QGraphicsEllipseItem, QGraphicsPathItem
+from PySide2.QtCore import QRectF, QRect, QPointF, QSize, QSizeF, Signal, Qt
+from PySide2.QtGui import QPixmap, QPainter, QPainterPath, QFontMetrics, QFont, QPen, QColor, QBrush
+from PySide2.QtWidgets import QGraphicsEllipseItem, QGraphicsPathItem, QGraphicsSceneMouseEvent, QGraphicsSceneHoverEvent
 from album import Album
 from imgutils import ImgUtils
-from math import pi, sin, cos
+from item_types import ItemTypes
+from math import pi, sin, cos, sqrt, atan2
 import textwrap
 
 class RoundAlbumItem(QGraphicsEllipseItem):
@@ -14,12 +15,75 @@ class RoundAlbumItem(QGraphicsEllipseItem):
         QGraphicsEllipseItem.__init__(self, parent)
         self.pix = pix
         self.setRect(pix.rect())
+        self.duration = self.pos = 0
+        self.setAcceptHoverEvents(True)
+        self.px = None
+        self.py = None
+        self.pa = None # touch (mouse) point angle
 
     def paint(self, painter, option, widget):
+        painter.setRenderHint(QPainter.Antialiasing, True)
         path = QPainterPath()
         path.addEllipse(self.pix.rect());
         painter.setClipPath(path);
         painter.drawPixmap(self.pix.rect(), self.pix)
+        self.drawPos(painter, self.pix.rect())
+
+    def drawPos(self, painter : QPainter, rect : QRect):
+        c = QColor("LightGreen")
+        c.setAlpha(210)
+        p = QPen(c)
+        p.setWidthF(18.0)
+        painter.setPen(p)
+        startAngle = 0
+        spanAngle = -16 * (self.pos / self.duration) * 360.0 if self.duration > 0 else 0
+        painter.drawArc(rect, startAngle, spanAngle)
+        if self.pa is not None:
+            c = QColor("DeepSkyBlue")
+            p.setColor(c)
+            p.setWidth(8)
+            painter.setPen(p)
+            painter.drawArc(rect, startAngle, self.pa * 16)
+
+    def hoverMoveEvent(self, event : QGraphicsSceneHoverEvent):
+        oldpa = self.pa
+        print(f'album_play_item: hoverMove: {event}')
+        p = event.pos()
+        r = self.rect()
+        c = r.center()
+        radius = r.width() / 2.0
+        a = 0
+        dx = p.x() - c.x()
+        dy = p.y() - c.y()
+        if sqrt(dx ** 2 + dy ** 2) > 0.8 * radius:
+            if dx >= 0 and dy >= 0:
+                a = atan2(dy, dx)
+            elif dx <  0 and dy > 0:
+                a = pi/2.0 + atan2(-dx, dy)
+            elif dx < 0 and dy < 0:
+                a = pi + atan2(-dy, -dx)
+            else: # dx > 0 and dy < 0
+                a = 3 * pi / 2.0 + atan2(dx, -dy)
+            self.pa = - a * 360.0 / 2.0 / pi
+            print(f'{dx}, {dy}, angle {self.pa}')
+        else:
+            self.pa = None
+        if oldpa != self.pa:
+            self.update()
+
+    def seekPos(self):
+        if self.pa != None:
+            return -self.pa / 360.0 if self.pa > -359 else -359
+        return -1
+
+    def hoverLeaveEvent(self, event : QGraphicsSceneHoverEvent):
+        oldpa = self.pa
+        self.pa = None
+        if oldpa != self.pa:
+            self.update()
+
+    def type(self):
+        return ItemTypes.AlbumPlay.value
 
 class TrackItem(QGraphicsTextItem):
     def __init__(self, track : dict, font : QFont, parent : QGraphicsItem = None):
@@ -30,7 +94,7 @@ class TrackItem(QGraphicsTextItem):
         self.setFlag(QGraphicsItem.ItemSendsGeometryChanges, True);
         self.setFlag(QGraphicsItem.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
-        self.track_id = track['id']
+        self.track_id = str(track['id']) # use str
         self.bgpix = None
         self.bgrect = None
         self.imgu = ImgUtils()
@@ -43,18 +107,29 @@ class TrackItem(QGraphicsTextItem):
     def paint(self, painter, option, widget):
         if self.bgrect is None:
             self._graphics_prepare()
-            self.setDefaultTextColor(QColor(self.imgu.bestFgColor(self.bgpix, self.bgrect)))
 
-        painter.drawPixmap(option.rect, self.bgpix, self.bgrect)
+        painter.drawPixmap(option.rect, self.bgpix, self.bgpix.rect())
+        brushc = QColor("gray") if self.defaultTextColor().lightness() > 155 else QColor("white") if not self.isSelected() else QColor("palegreen")
+        brushc.setAlpha(90 if not self.isSelected() else 200)
 
         color = QColor("green") if self.isSelected() else QColor("lightblue")
         painter.setPen(color.darker())
        # color.setAlpha(190)
-       # painter.setBrush(color)
+        painter.setBrush(brushc)
         r = QRectF(QPointF(0,0), option.rect.size())
         painter.drawRoundedRect(r, 2.0, 2.0)
         QGraphicsTextItem.paint(self, painter, option, widget)
 
+        if self.isSelected():
+            painter.setBrush(QBrush())
+            p = QPen("white")
+            p.setWidthF(4.5)
+            painter.setPen(p)
+            painter.drawRoundedRect(r, 3.0, 3.0)
+            p.setColor(QColor("MediumSeaGreen"))
+            p.setWidthF(0)
+            painter.setPen(p)
+            painter.drawRoundedRect(r, 3.0, 3.0)
 
     def setConnector(self, path):
         self.connector = path
@@ -111,10 +186,12 @@ class TrackItem(QGraphicsTextItem):
         return QGraphicsItem.itemChange(self, change, value);
 
     def _graphics_prepare(self):
-        if self.bgpix is None:
-            self.bgpix = self.scene().backgroundPixmap() # scene() : DetailScene
         self.bgrect = self.mapRectToItem(self.scene().background_it, self.boundingRect()).toRect()
-        self.setDefaultTextColor(QColor(self.imgu.bestFgColor(self.bgpix, self.bgrect)))
+        qi = self.scene().backgroundPixmap().copy(self.bgrect).toImage() # scene() : DetailScene
+        fgcolor = self.imgu.bestFgColor(qi)
+        self.imgu.adjustBackground(qi, fgcolor) # make sure text is well readable
+        self.bgpix = QPixmap.fromImage(qi)
+        self.setDefaultTextColor(QColor(fgcolor))
 
 
 class AlbumPlayItem(QGraphicsRectItem):
@@ -163,7 +240,8 @@ class AlbumPlayItem(QGraphicsRectItem):
         i = 0
         prevr = None
         trackfont = font
-        trackfont.setPointSizeF(font.pointSizeF() - 1.2)
+        #trackfont.setPointSizeF(font.pointSizeF() - 1.2)
+        trackfont.setBold(True)
         for t in album.tracks:
             a = a0 + i * alpha
             ti = TrackItem(t, trackfont, self)
@@ -222,9 +300,21 @@ class AlbumPlayItem(QGraphicsRectItem):
 
 
     def selectTrack(self, trackid):
+        print(f'selecting track {trackid} type {type(trackid)}')
         for t in self.track_items:
-            if t.track_id == trackid:
-                t.setSelected(True)
+            t.setSelected(True if t.track_id == trackid else False)
+
+    def deselect(self):
+        for t in self.track_items:
+            t.setSelected(False)
+
+    def setTrackDuration(self, du):
+        self.p.duration = du
+        self.p.update()
+
+    def setTrackPos(self, pos):
+        self.p.pos = pos
+        self.p.update()
 
 
 

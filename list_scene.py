@@ -1,12 +1,13 @@
 # This Python file uses the following encoding: utf-8
 
 from PySide2.QtWidgets import QGraphicsScene, QGraphicsItem
-from PySide2.QtCore import QRect, QRectF, Signal, Slot
+from PySide2.QtCore import QRect, QRectF, Signal, Slot, Qt, QDateTime
 import math
 
 # local
 from album import Album
 from artItem import ArtItem
+from item_types import ItemTypes
 import json
 
 class ListScene(QGraphicsScene):
@@ -14,54 +15,111 @@ class ListScene(QGraphicsScene):
 
     def __init__(self, parent):
         QGraphicsScene.__init__(self, parent)
-        self.x = self.y = 0
-        self.cnt = 0
+        self.x = self.y = self.maxw = 0
+        self.column_idx = 0
         self.selectionChanged.connect(self.emit_albumSelectionChanged)
         self.selectedAlbum : Album = None
 
-    def prepareNewArtwork(self, cnt: int):
-        self.cnt = cnt;
-        self.x = 10.0
-        self.y = 10.0
-        self.maxw = 0
-        self.rows = math.sqrt(self.cnt) if self.cnt > 0 else 10
-        self.cnt = 0
-        self.clear()
-
     def _caption(self, album: dict):
-        print(f'_caption: \033[1;33m{album}\033[0m')
         artist = album['artist']['name']
         title = album['title']
         d = album['release_date_original']
         released = d[0:d.index('-')]
         return artist + ' - ' + released + '\n' + title
 
-    def addArtwork(self, album: Album):
-        img = album.spix
+    def getItem(self, id):
+        items = self.getArtItems()
+        for i in items:
+            if i.id == id:
+                return i
+        return None
+
+    def getArtItems(self):
+        ai = []
+        for item in self.items(Qt.AscendingOrder):
+            if item.type() == ItemTypes.Art.value:
+                ai.append(item)
+        return ai
+
+    def prepareNewArtwork(self, albums: list):
+        newids = []
+        for a in albums:
+            newids.append(a.id)
+        rem = [] # items to remove
+        print(f'prepareNewArtwork: current items count {len(self.getArtItems())}')
+        for i in self.getArtItems():
+            if i.id not in newids:
+                rem.append(i)
+        for i in rem:
+            print(f'prepareNewArtwork \033[1;35m removing no more album {i.album.title}: {i.album.id}\033[0m')
+            self.removeItem(i)
+
+        self.grid_size = math.sqrt(len(albums))
+        self.grid_size = 8 if self.grid_size > 8 else self.grid_size
+        self._layout()
+        self.maxw = self.column_idx = 0
+        self.x = self.y = 10
+
+    def addArtwork(self, albums: list):
+        albums.sort(key=lambda a: QDateTime.fromString(a.malbum['release_date_original'], 'yyyy-MM-dd').toSecsSinceEpoch())
         ssize = self.sceneRect().size()
         r = self.sceneRect()
-        text = self._caption(album.malbum)
-        art_item = ArtItem(img, text, self.font(), album)
-       # art_item.setFlag(QGraphicsItem.ItemIsMovable, True)
-        art_item.setFlag(QGraphicsItem.ItemIsSelectable, True)
-        size = art_item.boundingRect().size()
-        art_item.setPos(self.x, self.y);
-        self.addItem(art_item)
-        print(f'scene size {ssize} item siz {size} pos {art_item.pos()}')
-        self.x = self.x + 1.1 * size.width()
-        if self.maxw < self.x:
-            self.maxw = self.x
-        self.cnt += 1
-        if self.cnt >= self.rows:
-            self.cnt = 0
-            self.x = 10.0
-            self.y = self.y + 1.1 * size.height()
-            r.setHeight(self.y)
-        else:
-            r.setHeight(self.y + 1.1 * size.height())
+        x = y = 10
+        maxw = column_idx = 0
+        for album in albums:
+            img = album.spix
+            text = self._caption(album.malbum)
+            art_item = self.getItem(album.id)
+            if art_item is None:
+                art_item = ArtItem(img, text, self.font(), album)
+                art_item.setFlag(QGraphicsItem.ItemIsSelectable, True)
+                self.addItem(art_item)
 
-        r.setWidth(self.maxw);
-        self.setSceneRect(r)
+            size = art_item.boundingRect().size()
+            art_item.setPos(x, y);
+            print(f'scene size {ssize} rect {self.sceneRect()} item siz {size} pos {art_item.pos()} grid size {self.grid_size} {album.title} {album.released}')
+            x = x + 1.1 * size.width()
+            if maxw < x:
+                maxw = x
+            column_idx += 1
+            if column_idx >= self.grid_size:
+                column_idx = 0
+                x = 10.0
+                y = y + 1.1 * size.height()
+                r.setHeight(y)
+            else:
+                r.setHeight(y + 1.1 * size.height())
+        if len(albums) > 0:
+            r.setWidth(maxw);
+            self.setSceneRect(r)
+
+    def _layout(self):
+        x = 10.0
+        y = 10.0
+        column_idx = 0
+        maxw = 0
+        ssize = self.sceneRect().size()
+        r = self.sceneRect()
+        arti = self.getArtItems()
+        for i in arti:
+            size = i.boundingRect().size()
+            i.setPos(x, y);
+            print(f'list_scene._layout: scene size {ssize} item siz {size} pos {i.pos()}')
+            x = x + 1.1 * size.width()
+            if maxw < x:
+                maxw = x
+            column_idx += 1
+            if column_idx >= self.grid_size:
+                column_idx = 0
+                x = 10.0
+                y = y + 1.1 * size.height()
+                r.setHeight(y)
+            else:
+                r.setHeight(y + 1.1 * size.height())
+        if len(arti) > 0:
+            r.setWidth(maxw);
+            print(f'\033[1;33m_layout scene size changed from {ssize} to {r.size()}\033[0m')
+            self.setSceneRect(r)
 
     @Slot()
     def emit_albumSelectionChanged(self):

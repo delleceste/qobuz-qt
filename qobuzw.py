@@ -5,7 +5,7 @@ from PySide2.QtWidgets import QGraphicsView, QGraphicsScene
 from PySide2.QtWidgets import QApplication, QMainWindow, QHeaderView
 
 from list_scene import ListScene
-from detail_scene import DetailScene
+from player_scene import PlayerScene
 
 # Important:
 # You need to run the following command to generate the ui_form.py file
@@ -29,9 +29,9 @@ class QobuzW(QMainWindow):
         self.scene.setSceneRect(0, 0, 1200, 1200)
 
         # single album scene
-        self.scene2 = DetailScene(self)
-        self.scene2.setSceneRect(self.scene.sceneRect())
-        self.ui.gview2.setScene(self.scene2)
+        self.player_scene = PlayerScene(self)
+        self.player_scene.setSceneRect(self.scene.sceneRect())
+        self.ui.gview2.setScene(self.player_scene)
 
         self.ui.stackW.setCurrentIndex(CurrentView.List.value)
 
