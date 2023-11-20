@@ -1,6 +1,6 @@
 # This Python file uses the following encoding: utf-8
 from PySide2 import QtCore
-from PySide2.QtWidgets import QApplication, QGraphicsItem, QGraphicsPixmapItem, QTreeWidgetItem
+from PySide2.QtWidgets import QApplication, QGraphicsItem, QGraphicsPixmapItem, QTreeWidgetItem, QScrollBar
 from PySide2.QtCore import QObject, Slot, Signal, QThread, QRect, QPoint, QPointF, QDateTime, Qt, QTimer
 import sys
 from enum import Enum
@@ -66,6 +66,10 @@ class QobuzQt(QObject):
         self.win.ui.pbClear.clicked.connect(self.clear)
         self.win.ui.pbAdd.clicked.connect(self.add)
 
+        # update results on scroll
+        scroll = self.win.ui.gview.verticalScrollBar()
+        scroll.valueChanged.connect(self.on_results_scroll_value_changed)
+
         self.player.track_index_changed.connect(self.on_track_index_changed)
         self.player.qmplayer.mediaStatusChanged.connect(self.on_player_media_status_changed)
         self.player.enqueued.connect(self.on_player_enqueued)
@@ -119,6 +123,17 @@ class QobuzQt(QObject):
         print(f'restarting timer {str}')
         self._search_tmr.start()
 
+    @Slot(int)
+    def on_results_scroll_value_changed(self, v):
+        s = self.win.ui.gview.verticalScrollBar()
+        print(f'on_results_scroll_value_changed: value {v} over maximum scroll value {s.maximum()}')
+        if v >= (s.maximum() - s.minimum()) * 0.95:
+            ok = s.valueChanged.disconnect(self.on_results_scroll_value_changed)
+            print(f'\033[1;32mfetching next results/ current offset in search {self._search.offset} disconnect ok {ok}\033[0m')
+            if not self._search.running:
+                self._search.nextResults()
+                self.search()
+
     @Slot()
     def search(self):
         # self.win.scene.clear()
@@ -132,22 +147,24 @@ class QobuzQt(QObject):
 
     @Slot()
     def on_search_results(self, search: Search):
+        newsearch = (search.offset == 0)
         self.win.ui.stackW.setCurrentIndex(0)
         changed = False
         if search.result_type == SearchResult.Album:
-            idrem = []
-            found_ids = []
-            for a in search.results:
-                found_ids.append(a['id'])
+            if newsearch:
+                idrem = []
+                found_ids = []
+                for a in search.results:
+                    found_ids.append(a['id'])
 
-            for id in self.albums:
-                if id not in found_ids:
-                    idrem.append(id)
+                for id in self.albums:
+                    if id not in found_ids:
+                        idrem.append(id)
 
-            for r in idrem:
-                changed = True
-                print(f'\033[1;31mremove album \033[1;33m{self.albums.get(r).malbum["title"]}\033[0m')
-                self.albums.pop(r)
+                for r in idrem:
+                    changed = True
+                    print(f'\033[1;31mremove album \033[1;33m{self.albums.get(r).malbum["title"]}\033[0m')
+                    self.albums.pop(r)
 
             for album in search.results:
                 myal = Album(album) # album is minim.qobuz.Album
@@ -157,15 +174,20 @@ class QobuzQt(QObject):
                 else:
                     print(f'\033[1;32malbums already contains \033[1;33m{myal.malbum["title"]}\033[0m')
 
+
+
             if changed:
                 albums = []
                 for id in self.albums:
                     albums.append(self.albums[id])
-                self.win.scene.prepareNewArtwork(albums)
+                if newsearch:
+                    self.win.scene.prepareNewArtwork(albums)
                 for a in albums:
                     th = QobuzQtThread(self, ArtworkFetch(a))
                     th.finished.connect(self.on_img_ready)
                     th.start()
+
+
 
     @Slot(Threadable)
     def on_img_ready(self, artwork_fetch: ArtworkFetch):
@@ -179,11 +201,18 @@ class QobuzQt(QObject):
 
         self.win.statusBar().showMessage(f'found {len(self.albums)} albums matching {self.win.ui.leSearch.text()}')
 
+        # update results on scroll
+        print('\033[1;34mconnecting scrollbasr\033[0m')
+        scroll = self.win.ui.gview.verticalScrollBar()
+        scroll.valueChanged.connect(self.on_results_scroll_value_changed)
 
     @Slot(Threadable)
     def on_album_fetched(self, album_f : AlbumFetch):
         if album_f.id == self.win.scene.selectedAlbum.id:
+            # remove tracks in the list that have not been enqueued
+            self.tracks_view.remove(self.win.ui.tw, self.tracks_view.getNotEnqueuedIds(self.win.ui.tw))
             self.win.scene.selectedAlbum.setTracks(album_f.getTracks())
+            self.tracks_view.add(self.win.ui.tw, album_f.getTracks(), self.win.scene.selectedAlbum, select=True)
             self.textview.setTracks(self.win.ui.te)
             self.win.ui.pbAdd.setEnabled(True)
             self.win.ui.pbPlay.setEnabled(True)
@@ -191,6 +220,7 @@ class QobuzQt(QObject):
     @Slot(Album)
     def albumSelectionChanged(self, album : Album):
         print(f'albumSelectionChanged: {album}')
+        self.win.ui.w_list.setVisible(True)
         self.win.ui.pbAdd.setEnabled(True)
         self.win.ui.pbPlay.setEnabled(True)
         self.win.ui.pbAdd.setVisible(True)
@@ -202,11 +232,12 @@ class QobuzQt(QObject):
 
     @Slot()
     def trackSelectionChanged(self):
-        items = self.win.ui.tw.selectedItems()
-        for i in items:
-            data = i.data(0, UserRoles.Metadata.value)
-            print(f'selected \033[1;36m{data}\033[0m')
-            print(f'selected: album id \033[0;36m{i.data(0, UserRoles.Album.value).title}\033[0m')
+        pass
+#        items = self.win.ui.tw.selectedItems()
+#        for i in items:
+#            data = i.data(0, UserRoles.Metadata.value)
+#            print(f'selected \033[1;36m{data}\033[0m')
+#            print(f'selected: album id \033[0;36m{i.data(0, UserRoles.Album.value).title}\033[0m')
 
     def error(self, origin, reason):
         print(f'error: {origin}: \033[1;31m{reason}\033[0m')
@@ -215,6 +246,9 @@ class QobuzQt(QObject):
         self.win.ui.stackW.setCurrentIndex(cur_view.value)
         self.win.ui.pbBack.setVisible(cur_view == CurrentView.Detail)
         self.win.ui.pbSearch.setVisible(cur_view == CurrentView.List)
+        self.win.ui.leSearch.setVisible(cur_view == CurrentView.List)
+        self.win.ui.pbAdd.setVisible(cur_view == CurrentView.List)
+        self.tracks_view.mainViewChanged(self.win.ui.tw, cur_view)
 
     def _get_album(self, id):
         th = QobuzQtThread(self, AlbumFetch(self.session, id))
@@ -227,14 +261,15 @@ class QobuzQt(QObject):
 
     @Slot()
     def add(self):
-        self.win.ui.w_list.setVisible(True)
-        ids = self.tracks_view.add(self.win.ui.tw, self.textview.tracks, self.textview.album)
+        ids = self.tracks_view.markSelectedEnqueued(self.win.ui.tw)
+        # clear selection after marking track enqueued
+        self.tracks_view.deselect(self.win.ui.tw)
         # ids = self.tracks_view.getIds(self.win.ui.tw)
         self.player.enqueue(self.session, ids, QoFormat.HiRes192.value)
 
     @Slot()
     def play(self, offset : int = 0):
-        if self.win.ui.tw.topLevelItemCount() == 0:
+        if self.tracks_view.enqueuedCnt(self.win.ui.tw) == 0:
             self.add()
         self._toggleScene(CurrentView.Detail)
         album = self.tracks_view.activeAlbum(self.win.ui.tw)
@@ -244,7 +279,6 @@ class QobuzQt(QObject):
             self.player.play(offset)
         else: # self.add calls player.enqueue that fetches urls in a secondary thread
             self.status.play_scheduled = True
-
 
     @Slot()
     def stop(self):
@@ -296,6 +330,7 @@ class QobuzQt(QObject):
     @Slot(int)
     def on_player_positionChanged(self, p):
         self.win.player_scene.setPlayerPos(p)
+        print(f'qobuz_qt: position: {p}')
 
     @Slot(bool)
     def on_player_seekableChanged(self, s):

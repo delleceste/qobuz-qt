@@ -42,6 +42,9 @@ class PlayerScene(QGraphicsScene):
         self.maxw = 0
         self.rows = math.sqrt(self.cnt) if self.cnt > 0 else 10
         self.cnt = 0
+        self.id = -1 # reset self.id for set() check for self.id != album id works
+        self.play_item = None
+        print('\033[1;35m clearing scene/....\033[0m\n')
         self.clear()
 
     def _caption(self, album: dict):
@@ -54,11 +57,10 @@ class PlayerScene(QGraphicsScene):
             self.prepareNewArtwork(1)
             self.id = album.malbum['id']
             bgpix : QPixmap = album.lpix
-
             img = album.spix
-            ssize = self.sceneRect().size()
             r = self.sceneRect()
             text = self._caption(album.malbum)
+            print(f'\033[1;32m Creating new Album Play Item {text}....\033[0m\n')
             self.play_item = AlbumPlayItem(img, text, self.font(), album, self.sceneRect())
            # art_item.setFlag(QGraphicsItem.ItemIsMovable, True)
             self.play_item.setFlag(QGraphicsItem.ItemIsSelectable, True)
@@ -96,11 +98,12 @@ class PlayerScene(QGraphicsScene):
                 i.deselect()
 
     def setPlayerDuration(self, du):
-        self.play_item.setTrackDuration(du)
+        if self.play_item is not None:
+            self.play_item.setTrackDuration(du)
 
     def setPlayerPos(self, p):
-        self.play_item.setTrackPos(p)
-
+        if self.play_item is not None:
+            self.play_item.setTrackPos(p)
 
     def backgroundPixmap(self):
         return self.background_it.pixmap()

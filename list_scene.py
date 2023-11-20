@@ -64,8 +64,7 @@ class ListScene(QGraphicsScene):
         albums.sort(key=lambda a: QDateTime.fromString(a.malbum['release_date_original'], 'yyyy-MM-dd').toSecsSinceEpoch())
         ssize = self.sceneRect().size()
         r = self.sceneRect()
-        x = y = 10
-        maxw = column_idx = 0
+        self.maxw = self.column_idx = 0
         for album in albums:
             img = album.spix
             text = self._caption(album.malbum)
@@ -76,21 +75,21 @@ class ListScene(QGraphicsScene):
                 self.addItem(art_item)
 
             size = art_item.boundingRect().size()
-            art_item.setPos(x, y);
+            art_item.setPos(self.x, self.y);
             print(f'scene size {ssize} rect {self.sceneRect()} item siz {size} pos {art_item.pos()} grid size {self.grid_size} {album.title} {album.released}')
-            x = x + 1.1 * size.width()
-            if maxw < x:
-                maxw = x
-            column_idx += 1
-            if column_idx >= self.grid_size:
-                column_idx = 0
-                x = 10.0
-                y = y + 1.1 * size.height()
-                r.setHeight(y)
+            self.x = self.x + 1.1 * size.width()
+            if self.maxw < self.x:
+                self.maxw = self.x
+            self.column_idx += 1
+            if self.column_idx >= self.grid_size:
+                self.column_idx = 0
+                self.x = 10.0
+                self.y = self.y + 1.1 * size.height()
+                r.setHeight(self.y)
             else:
-                r.setHeight(y + 1.1 * size.height())
+                r.setHeight(self.y + 1.1 * size.height())
         if len(albums) > 0:
-            r.setWidth(maxw);
+            r.setWidth(self.maxw);
             self.setSceneRect(r)
 
     def _layout(self):
