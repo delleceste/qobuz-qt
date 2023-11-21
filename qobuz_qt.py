@@ -1,7 +1,7 @@
-# This Python file uses the following encoding: utf-8
+﻿# This Python file uses the following encoding: utf-8
 from PySide2 import QtCore
 from PySide2.QtWidgets import QApplication, QGraphicsItem, QGraphicsPixmapItem, QTreeWidgetItem, QScrollBar
-from PySide2.QtCore import QObject, Slot, Signal, QThread, QRect, QPoint, QPointF, QDateTime, Qt, QTimer
+from PySide2.QtCore import QObject, Slot, Signal, QThread, QRect, QRectF, QPoint, QPointF, QDateTime, Qt, QTimer
 import sys
 from enum import Enum
 from qobuzw import QobuzW
@@ -109,7 +109,8 @@ class QobuzQt(QObject):
         self.win.statusBar().showMessage(msg)
         if login.session != None:
             self.session = login.session
-            self._search = Search(self.session)
+            self._search = Search(self.session, self)
+            self._search.search_complete.connect(self.on_search_results)
             self.win.ui.pbSearch.setEnabled(True)
 
             self.win.ui.leSearch.textChanged.connect(self.on_search_text_changed)
@@ -120,91 +121,80 @@ class QobuzQt(QObject):
 
     @Slot(str)
     def on_search_text_changed(self, str):
-        print(f'restarting timer {str}')
-        self._search_tmr.start()
+        if len(str) > 2:
+            self._search_tmr.start()
 
     @Slot(int)
     def on_results_scroll_value_changed(self, v):
         s = self.win.ui.gview.verticalScrollBar()
-        print(f'on_results_scroll_value_changed: value {v} over maximum scroll value {s.maximum()}')
-        if v >= (s.maximum() - s.minimum()) * 0.95:
-            ok = s.valueChanged.disconnect(self.on_results_scroll_value_changed)
-            print(f'\033[1;32mfetching next results/ current offset in search {self._search.offset} disconnect ok {ok}\033[0m')
-            if not self._search.running:
-                self._search.nextResults()
-                self.search()
+        print(f'on_results_scroll_value_changed: value {v} over maximum scroll value {s.maximum()} search running {self._search.running}')
+        if v >= (s.maximum() - s.minimum()) * 0.85 and not self._search.running:
+            print(f'\033[1;32mfetching next results/ current offset in search {self._search.offset} \033[0m')
+            self._search.running = True
+            self._search.nextResults()
+            self.search()
+        elif v >= (s.maximum() - s.minimum()) * 0.85 and self._search.running:
+            print(f'\033[1;35manother search in progress: offset {self._search.offset}\033[0m')
 
     @Slot()
     def search(self):
         # self.win.scene.clear()
         self._search.setKeyword(self.win.ui.leSearch.text())
         self.win.statusBar().showMessage(f'searching {self.win.ui.leSearch.text()}')
-        th = QobuzQtThread(self, self._search)
-        th.finished.connect(self.on_search_results)
-        th.start()
+        self._search.search()
         self.win.ui.pbAdd.setDisabled(True)
         self.win.ui.pbPlay.setDisabled(True)
 
     @Slot()
-    def on_search_results(self, search: Search):
-        newsearch = (search.offset == 0)
+    def on_search_results(self):
+        newsearch = (self._search.offset == 0)
         self.win.ui.stackW.setCurrentIndex(0)
         changed = False
-        if search.result_type == SearchResult.Album:
+        if self._search.result_type == SearchResult.Album:
             if newsearch:
+                # newsearch means search with a new keyword
                 idrem = []
                 found_ids = []
-                for a in search.results:
-                    found_ids.append(a['id'])
-
+                # gather ids of found results search.results is type: album.Album
+                for a in self._search.results:
+                    found_ids.append(a.id)
+                # put in idrem ids in self.albums that *are not* in search results
                 for id in self.albums:
                     if id not in found_ids:
                         idrem.append(id)
-
+                # remove from self.albums
                 for r in idrem:
                     changed = True
                     print(f'\033[1;31mremove album \033[1;33m{self.albums.get(r).malbum["title"]}\033[0m')
                     self.albums.pop(r)
 
-            for album in search.results:
-                myal = Album(album) # album is minim.qobuz.Album
-                if self.albums.get(myal.id) == None:
+            newalbums = []
+            for album in self._search.results:
+                if self.albums.get(album.id) == None:
                     changed = True
-                    self.albums[myal.id] = myal
+                    self.albums[album.id] = album
+                    newalbums.append(album)
                 else:
-                    print(f'\033[1;32malbums already contains \033[1;33m{myal.malbum["title"]}\033[0m')
-
-
+                    print(f'\033[1;32malbums already contains \033[1;33m{album.malbum["title"]}\033[0m')
 
             if changed:
-                albums = []
-                for id in self.albums:
-                    albums.append(self.albums[id])
+                print(f'there are {len(newalbums)} new albums scene rect {self.win.scene.sceneRect()}')
                 if newsearch:
-                    self.win.scene.prepareNewArtwork(albums)
-                for a in albums:
-                    th = QobuzQtThread(self, ArtworkFetch(a))
-                    th.finished.connect(self.on_img_ready)
-                    th.start()
-
-
+                    self.win.ui.gview.verticalScrollBar().setValue(0)
+                    self.win.scene.prepareNewArtwork(self._search.results)
+                for a in newalbums:
+                    af = ArtworkFetch(a, self)
+                    af.fetch_complete.connect(self.on_img_ready)
+                    af.fetch()
 
     @Slot(Threadable)
     def on_img_ready(self, artwork_fetch: ArtworkFetch):
-        alist = []
-        for a in self.albums:
-            alist.append(self.albums[a])
-            if not self.albums[a].artwork_fetch: # not all albums with artwork yet
+        for a in self._search.results:
+            if not a.artwork_fetch: # not all albums with artwork yet
                 return
-
-        self.win.scene.addArtwork(alist)
-
-        self.win.statusBar().showMessage(f'found {len(self.albums)} albums matching {self.win.ui.leSearch.text()}')
-
-        # update results on scroll
-        print('\033[1;34mconnecting scrollbasr\033[0m')
-        scroll = self.win.ui.gview.verticalScrollBar()
-        scroll.valueChanged.connect(self.on_results_scroll_value_changed)
+        print(f'on_img_ready: adding to scene {len(self._search.results)} albums')
+        self.win.scene.addArtwork(self._search.results)
+        self.win.statusBar().showMessage(f'displayed {len(self.albums)} over {self._search.total} albums matching {self.win.ui.leSearch.text()}')
 
     @Slot(Threadable)
     def on_album_fetched(self, album_f : AlbumFetch):

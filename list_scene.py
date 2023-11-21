@@ -17,6 +17,7 @@ class ListScene(QGraphicsScene):
         QGraphicsScene.__init__(self, parent)
         self.x = self.y = self.maxw = 0
         self.column_idx = 0
+        self.grid_size = 4
         self.selectionChanged.connect(self.emit_albumSelectionChanged)
         self.selectedAlbum : Album = None
 
@@ -54,17 +55,15 @@ class ListScene(QGraphicsScene):
             print(f'prepareNewArtwork \033[1;35m removing no more album {i.album.title}: {i.album.id}\033[0m')
             self.removeItem(i)
 
-        self.grid_size = math.sqrt(len(albums))
-        self.grid_size = 8 if self.grid_size > 8 else self.grid_size
+        self.grid_size = 4 # math.sqrt(len(albums))
+        # self.grid_size = 8 if self.grid_size > 8 else self.grid_size
         self._layout()
         self.maxw = self.column_idx = 0
         self.x = self.y = 10
 
     def addArtwork(self, albums: list):
         albums.sort(key=lambda a: QDateTime.fromString(a.malbum['release_date_original'], 'yyyy-MM-dd').toSecsSinceEpoch())
-        ssize = self.sceneRect().size()
         r = self.sceneRect()
-        self.maxw = self.column_idx = 0
         for album in albums:
             img = album.spix
             text = self._caption(album.malbum)
@@ -74,9 +73,10 @@ class ListScene(QGraphicsScene):
                 art_item.setFlag(QGraphicsItem.ItemIsSelectable, True)
                 self.addItem(art_item)
 
-            size = art_item.boundingRect().size()
+            size = art_item.rect().size()
             art_item.setPos(self.x, self.y);
-            print(f'scene size {ssize} rect {self.sceneRect()} item siz {size} pos {art_item.pos()} grid size {self.grid_size} {album.title} {album.released}')
+            print(f'scene rect {self.sceneRect()} item siz {size} pos {art_item.pos()}')
+            print(f'{album.title} {album.released} @ \033[1;36m{self.x}, {self.y}\033[0m')
             self.x = self.x + 1.1 * size.width()
             if self.maxw < self.x:
                 self.maxw = self.x
@@ -86,11 +86,8 @@ class ListScene(QGraphicsScene):
                 self.x = 10.0
                 self.y = self.y + 1.1 * size.height()
                 r.setHeight(self.y)
-            else:
-                r.setHeight(self.y + 1.1 * size.height())
-        if len(albums) > 0:
-            r.setWidth(self.maxw);
-            self.setSceneRect(r)
+        r.setWidth(self.maxw)
+        self.setSceneRect(r)
 
     def _layout(self):
         x = 10.0
@@ -101,7 +98,7 @@ class ListScene(QGraphicsScene):
         r = self.sceneRect()
         arti = self.getArtItems()
         for i in arti:
-            size = i.boundingRect().size()
+            size = i.rect().size()
             i.setPos(x, y);
             print(f'list_scene._layout: scene size {ssize} item siz {size} pos {i.pos()}')
             x = x + 1.1 * size.width()
@@ -118,7 +115,7 @@ class ListScene(QGraphicsScene):
         if len(arti) > 0:
             r.setWidth(maxw);
             print(f'\033[1;33m_layout scene size changed from {ssize} to {r.size()}\033[0m')
-            self.setSceneRect(r)
+            #self.setSceneRect(r)
 
     @Slot()
     def emit_albumSelectionChanged(self):

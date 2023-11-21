@@ -1,18 +1,33 @@
 # This Python file uses the following encoding: utf-8
 
-from threadable import Threadable
+from threadable import Threadable, QobuzQtThread
 import requests
+from album import Album
 from PySide2.QtGui import QPixmap
+from PySide2.QtCore import  Slot, Signal, QObject
 
 # local
 import album
 
 class ArtworkFetch(Threadable):
-    def __init__(self, album: album.Album):
+    fetch_complete = Signal(object)
+
+    def __init__(self, album: album.Album, parent : QObject = None):
+        Threadable.__init__(self, parent)
         self.album = album
 
     def getName(self):
         return "ArtworkFetch"
+
+    @Slot()
+    def on_finished(self, threadable : Threadable):
+        self.album.artwork_fetch = True
+        self.fetch_complete.emit(self)
+
+    def fetch(self):
+        th = QobuzQtThread(self, self)
+        th.finished.connect(self.on_finished)
+        th.start()
 
     def run(self):
         # album.Album.malbum -> minim.qobuz.Album
@@ -40,5 +55,4 @@ class ArtworkFetch(Threadable):
         else:
             print(f'img download error: {img.reason}')
 
-        self.album.artwork_fetch = True
 

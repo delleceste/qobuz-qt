@@ -2,18 +2,13 @@
 from PySide2.QtCore import QObject, Signal, QThread, Slot
 
 class Threadable(QObject):
+    def __init__(self, parent = None):
+        QObject.__init__(self, parent)
 
     def getName(self):
         return 'empty'
     def run(self):
         return None
-
-    @Slot()
-    def on_finished(self):
-        pass
-    @Slot()
-    def on_started(self):
-        pass
 
 class QobuzQtThread(QThread):
 
@@ -22,7 +17,6 @@ class QobuzQtThread(QThread):
     def __init__(self, parent, threadable):
         QThread.__init__(self, parent)
         self.threadable = threadable
-        self.finished.connect(self.threadable.on_finished())
 
     def run(self):
         self.threadable.run()

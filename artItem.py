@@ -24,7 +24,6 @@ class ArtItem(QGraphicsRectItem):
         for line in lines:
             llen = len(line)
             while fm.horizontalAdvance(line) > pw:
-                print(f'\033[1;31mshrinking to "{line}"\033[0m')
                 line = line[0:len(line) - 1]
             if(llen > len(line)):  # shrinked
                 short_lines.append(line[0:len(line) - 3] + "...")
